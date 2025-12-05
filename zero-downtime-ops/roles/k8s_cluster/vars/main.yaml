@@ -1,0 +1,4 @@
+---
+k8s_is_master: "{{ 'k8s_master' in group_names }}"
+k8s_is_worker: "{{ 'k8s_workers' in group_names }}"
+kubeadm_join_command_file: "/tmp/kubeadm_join.sh"

@@ -1,0 +1,13 @@
+---
+- name: Rolling update des nœuds K8s (patch kernel sans downtime)
+  hosts: k8s_nodes
+  serial: 1
+  become: true
+
+  vars:
+    # Tu peux les surcharger dans group_vars/ ou host_vars/ si tu veux
+    k8s_namespace: "payments"
+    k8s_app_label: "payment-api"
+
+  roles:
+    - k8s_rolling_update

@@ -1,0 +1,4 @@
+---
+# Vars plus "fortes" si besoin, sinon tu peux tout laisser dans defaults/
+hardening_enable_fail2ban: true
+hardening_enable_firewall: true

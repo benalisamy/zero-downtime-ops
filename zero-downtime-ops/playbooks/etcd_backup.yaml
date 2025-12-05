@@ -1,0 +1,51 @@
+---
+- name: Backup ETCD ponctuel
+  hosts: k8s_master
+  become: true
+
+  vars:
+    etcd_backup_dir: /var/backups/etcd
+    etcd_backup_filename: "etcd-snapshot-{{ ansible_date_time.iso8601_basic }}.db"
+    etcdctl_bin: /usr/local/bin/etcdctl
+    etcd_endpoint: "https://127.0.0.1:2379"
+    etcd_cacert: "/etc/kubernetes/pki/etcd/ca.crt"
+    etcd_cert: "/etc/kubernetes/pki/etcd/server.crt"
+    etcd_key: "/etc/kubernetes/pki/etcd/server.key"
+    remote_backup_host: "backup-server"
+    remote_backup_dir: "/srv/etcd-backups/{{ inventory_hostname }}"
+
+  tasks:
+    - name: Créer le répertoire local de backup ETCD
+      file:
+        path: "{{ etcd_backup_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Sauvegarder un snapshot ETCD
+      command: >
+        {{ etcdctl_bin }}
+        --endpoints={{ etcd_endpoint }}
+        --cacert={{ etcd_cacert }}
+        --cert={{ etcd_cert }}
+        --key={{ etcd_key }}
+        snapshot save {{ etcd_backup_dir }}/{{ etcd_backup_filename }}
+      environment:
+        ETCDCTL_API: "3"
+
+    - name: Copier le backup vers un serveur distant (optionnel)
+      synchronize:
+        src: "{{ etcd_backup_dir }}/{{ etcd_backup_filename }}"
+        dest: "{{ remote_backup_dir }}/"
+        mode: push
+      delegate_to: "{{ remote_backup_host }}"
+      ignore_errors: true
+
+    - name: Créer une tâche cron pour backup ETCD tous les jours à 3h
+      cron:
+        name: "etcd nightly backup"
+        user: root
+        minute: "0"
+        hour: "3"
+        job: "ETCDCTL_API=3 {{ etcdctl_bin }} --endpoints={{ etcd_endpoint }} --cacert={{ etcd_cacert }} --cert={{ etcd_cert }} --key={{ etcd_key }} snapshot save {{ etcd_backup_dir }}/etcd-snapshot-$(date +\\%Y\\%m\\%d-\\%H\\%M).db"
