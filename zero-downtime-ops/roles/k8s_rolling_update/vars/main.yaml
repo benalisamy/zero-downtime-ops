@@ -1,5 +1,0 @@
----
-# Tu peux surcharger ces variables si besoin au niveau inventaire
-
-k8s_evacuate_emptydir: false
-k8s_ignore_daemonsets: true

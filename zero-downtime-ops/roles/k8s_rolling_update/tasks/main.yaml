@@ -1,5 +1,0 @@
----
-- import_tasks: cordon_and_drain.yml
-- import_tasks: patch_os.yml
-- import_tasks: reboot_and_wait.yml
-- import_tasks: uncordon_and_validate.yml

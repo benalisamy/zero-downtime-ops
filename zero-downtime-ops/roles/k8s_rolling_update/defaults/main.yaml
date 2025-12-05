@@ -1,5 +1,0 @@
----
-kubeconfig_path: "/etc/kubernetes/admin.conf"
-k8s_namespace: "payments"
-k8s_app_label: "payment-api"
-drain_timeout: 300
