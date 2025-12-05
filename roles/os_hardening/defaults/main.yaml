@@ -1,0 +1,15 @@
+---
+hardening_admin_user: "opsadmin"
+hardening_admin_ssh_pubkey: ""
+hardening_allow_ssh_from: "0.0.0.0/0"
+
+hardening_sysctl_params:
+  net.ipv4.ip_forward: 0
+  net.ipv4.conf.all.rp_filter: 1
+  net.ipv4.tcp_syncookies: 1
+  fs.file-max: 2097152
+
+hardening_open_ports:
+  - 22 # SSH
+  - 6443 # API server K8s
+  - 10250 # kubelet

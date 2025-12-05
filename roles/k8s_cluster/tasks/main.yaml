@@ -1,0 +1,111 @@
+---
+- name: Installer dépendances pour Kubernetes
+  apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg
+      - lsb-release
+    state: present
+    update_cache: true
+
+- name: Ajouter la clé GPG Google pour Kubernetes
+  apt_key:
+    url: https://pkgs.k8s.io/core:/stable:/v1.30/deb/Release.key
+    state: present
+
+- name: Ajouter le dépôt Kubernetes
+  apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.30/deb/ /"
+    state: present
+  ignore_errors: true
+
+- name: Installer containerd
+  apt:
+    name: containerd
+    state: present
+
+- name: Générer config de containerd si absente
+  shell: "containerd config default > {{ containerd_config_path }}"
+  args:
+    creates: "{{ containerd_config_path }}"
+
+- name: Redémarrer containerd
+  service:
+    name: containerd
+    state: restarted
+    enabled: true
+
+- name: Installer kubelet, kubeadm, kubectl
+  apt:
+    name:
+      - "kubelet={{ k8s_version }}"
+      - "kubeadm={{ k8s_version }}"
+      - "kubectl={{ k8s_version }}"
+    state: present
+    update_cache: true
+
+- name: Marquer kubelet comme hold pour éviter upgrades non contrôlés
+  apt:
+    name:
+      - kubelet
+      - kubeadm
+      - kubectl
+    state: hold
+
+# --- Master seulement ---
+
+- name: Initialiser le control-plane Kubernetes
+  command: >
+    kubeadm init
+    --pod-network-cidr={{ k8s_pod_network_cidr }}
+    {{ kubeadm_init_extra_args }}
+  args:
+    creates: /etc/kubernetes/admin.conf
+  when: k8s_is_master
+
+- name: Créer .kube pour root
+  file:
+    path: /root/.kube
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+  when: k8s_is_master
+
+- name: Copier admin.conf pour kubectl root
+  copy:
+    src: /etc/kubernetes/admin.conf
+    dest: /root/.kube/config
+    owner: root
+    group: root
+    mode: "0600"
+  when: k8s_is_master
+
+- name: Générer la commande kubeadm join pour les workers
+  command: kubeadm token create --print-join-command
+  register: kubeadm_join_cmd
+  when: k8s_is_master
+
+- name: Sauvegarder la commande join dans un fichier partagé
+  copy:
+    content: "{{ kubeadm_join_cmd.stdout }}"
+    dest: "{{ kubeadm_join_command_file }}"
+  when: k8s_is_master
+
+# --- Workers seulement ---
+
+- name: Récupérer la commande join depuis le master
+  fetch:
+    src: "{{ kubeadm_join_command_file }}"
+    dest: "/tmp/{{ inventory_hostname }}-join.sh"
+    flat: true
+  delegate_to: "{{ groups['k8s_master'][0] }}"
+  when: k8s_is_worker
+
+- name: Rejoindre le cluster avec kubeadm join
+  command: "bash /tmp/{{ inventory_hostname }}-join.sh"
+  args:
+    creates: /etc/kubernetes/kubelet.conf
+  when: k8s_is_worker

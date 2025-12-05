@@ -1,0 +1,15 @@
+---
+- name: Mettre à jour tous les paquets (incluant le kernel)
+  package:
+    name: "*"
+    state: latest
+  register: pkgs_update
+
+- name: Vérifier si un reboot est nécessaire (Debian/Ubuntu)
+  stat:
+    path: /var/run/reboot-required
+  register: reboot_required_file
+
+- name: Déterminer si reboot nécessaire
+  set_fact:
+    reboot_needed: "{{ reboot_required_file.stat.exists | default(true) }}"
